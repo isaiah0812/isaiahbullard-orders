@@ -3,7 +3,7 @@ import Modal from 'react-bootstrap/Modal'
 import Button from 'react-bootstrap/Button'
 import Spinner from 'react-bootstrap/Spinner'
 
-export default class ConfirmPrintModal extends React.Component {
+export default class ConfirmPrintAllModal extends React.Component {
   state = {
     completing: false
   }
@@ -16,7 +16,7 @@ export default class ConfirmPrintModal extends React.Component {
       >
         <Modal.Header closeButton />
         <Modal.Body>
-          {this.state.completing ? <Spinner animation="border" color="rgb(41, 179, 241)" /> : `Are you sure you want to print order ${this.props.orderId}?`}
+          {this.state.completing ? <Spinner animation="border" color="rgb(41, 179, 241)" /> : `Are you sure you want to print ${this.props.listSize} orders?`}
         </Modal.Body>
         <Modal.Footer>
           <Button onClick={() => this.props.onHide()} variant="danger" disabled={this.state.completing}>No</Button>

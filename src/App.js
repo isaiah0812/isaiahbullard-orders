@@ -6,7 +6,10 @@ import Table from 'react-bootstrap/Table'
 import Button from 'react-bootstrap/Button'
 import { OPEN, COMPLETED, CANCELLED } from './constants/orderStatus'
 import ConfirmPrintModal from './components/confirmPrintModal'
+import ConfirmPrintAllModal from './components/confirmPrintAllModal'
 import FormCheck from 'react-bootstrap/FormCheck'
+import PrintingModal from './components/printingModal';
+import { default as emailjs } from 'emailjs-com'
 
 export default class App extends React.Component {
 
@@ -22,13 +25,20 @@ export default class App extends React.Component {
       shippingAddress: undefined,
     },
     confirmPrintVisible: false,
+    confirmPrintAllVisible: false,
     openStateFilter: false,
     completedStateFilter: false,
     canceledStateFilter: false,
+    printingModalVisible: false,
+    completedOrders: []
   }
 
   showConfirmPrint = () => this.setState({confirmPrintVisible: true})
   hideConfirmPrint = () => this.setState({confirmPrintVisible: false})
+  showConfirmPrintAll = () => this.setState({confirmPrintAllVisible: true})
+  hideConfirmPrintAll = () => this.setState({confirmPrintAllVisible: false})
+  showPrintingModal = () => this.setState({printingModalVisible: true})
+  hidePrintingModal = () => this.setState({printingModalVisible: false})
 
   toggleAllOrdersFilter = () => this.setState({openStateFilter: false, completedStateFilter: false, canceledStateFilter: false})
   toggleOpenStateFilter = () => this.setState({openStateFilter: true, completedStateFilter: false, canceledStateFilter: false})
@@ -38,6 +48,51 @@ export default class App extends React.Component {
   allOrders = () => !this.state.openStateFilter && !this.state.completedStateFilter && !this.state.canceledStateFilter
 
   openCount = () => this.state.orders.filter(order => order.orderStatus === OPEN)
+
+  completeAllOrders = (closeFunction) => {
+    emailjs.init(process.env.REACT_APP_EMAILJS_ID)
+    axios.post(`${process.env.REACT_APP_API_URL}/orders/complete`)
+      .then(result => result.data)
+      .then((completedOrders) => {
+        axios.get(`${process.env.REACT_APP_API_URL}/orders`)
+          .then(result => result.data)
+          .then(orders => this.setState({
+            orders: orders,
+            completedOrders: [...completedOrders, ...this.state.completedOrders]
+          }, () => {
+            this.showPrintingModal()
+          }))
+          .catch(error => console.error(error))
+          .finally(() => closeFunction())
+      })
+      .catch(error => console.error(error))
+  }
+
+  completeOpenOrder = (closeFunction) => {
+    emailjs.init(process.env.REACT_APP_EMAILJS_ID)
+    axios.post(`${process.env.REACT_APP_API_URL}/orders/${this.state.openOrder.id}/complete`)
+      .then(result => result.data)
+      .then((completedOrder) => {
+        axios.get(`${process.env.REACT_APP_API_URL}/orders`)
+          .then(result => result.data)
+          .then(orders => this.setState({
+            orders: orders,
+            completedOrders: [completedOrder, ...this.state.completedOrders]
+          }, () => {
+            this.showPrintingModal()
+          }))
+          .catch(error => console.error(error))
+          .finally(() => closeFunction())
+      })
+      .catch(error => console.error(error))
+  }
+
+  refresh = () => {
+    axios.get(`${process.env.REACT_APP_API_URL}/orders`)
+      .then(result => result.data)
+      .then(orders => this.setState({ orders: orders }))
+      .catch(error => console.error(error))
+  }
 
   componentDidMount = () => {
     axios.get(`${process.env.REACT_APP_API_URL}/orders`)
@@ -50,7 +105,9 @@ export default class App extends React.Component {
 
     return (
       <Container fluid style={{ padding: '1%' }}>
-        <Button onClick={() => this.showConfirmPrint()} variant="success" style={{ marginBottom: '0.5em', float: 'right' }}>Print all</Button>
+        <Button onClick={() => this.refresh()} variant="primary" style={{ marginBottom: '0.5em', marginLeft: '0.5em', float: 'right' }}>Refesh</Button>
+        <Button onClick={() => this.showPrintingModal()} variant="dark" style={{ marginBottom: '0.5em', marginLeft: '0.5em', float: 'right' }}>Print Recently Completed Orders</Button>
+        <Button onClick={() => this.showConfirmPrintAll()} variant="success" style={{ marginBottom: '0.5em', float: 'right' }}>Complete All Orders</Button>
         <FormCheck 
           type="radio" 
           style={{
@@ -91,6 +148,7 @@ export default class App extends React.Component {
           <thead>
             <tr>
               <th>ID</th>
+              <th>Created Date</th>
               <th>Line 1</th>
               <th>Line 2</th>
               <th>Line 3</th>
@@ -122,6 +180,9 @@ export default class App extends React.Component {
                     {order.id}
                   </td>
                   <td>
+                    {new Date(order.createdDate).toLocaleString()}
+                  </td>
+                  <td>
                     {line1 ? line1 : ''}
                   </td>
                   <td>
@@ -149,14 +210,17 @@ export default class App extends React.Component {
                     {order.orderStatus}
                   </td>
                   <td>
-
+                    {order.orderStatus === OPEN && <Button onClick={() => this.setState({openOrder: order}, () => this.showConfirmPrint())} variant="primary" style={{margin: '0% 1%'}}>Complete Order</Button>}
+                    {order.orderStatus === COMPLETED && <Button onClick={() => window.open("order.shippingLabelInfo.url", "_blank")} variant="success" style={{margin: '0% 1%'}}>Print Label</Button>}
                   </td>
                 </tr>
               )
             })}
           </tbody>
         </Table>
-        <ConfirmPrintModal show={this.state.confirmPrintVisible} onHide={() => this.hideConfirmPrint()} listSize={this.state.orders.length} />
+        <ConfirmPrintModal show={this.state.confirmPrintVisible} onHide={() => this.hideConfirmPrint()} orderId={this.state.openOrder.id} confirm={this.completeOpenOrder} />
+        <ConfirmPrintAllModal show={this.state.confirmPrintAllVisible} onHide={() => this.hideConfirmPrintAll()} listSize={this.state.orders.filter(order => order.orderStatus === OPEN).length} confirm={this.completeAllOrders} />
+        <PrintingModal show={this.state.printingModalVisible} onHide={() => this.hidePrintingModal()} orders={this.state.completedOrders} clear={() => this.setState({ completedOrders: [] })} />
       </Container>
     );
   }
