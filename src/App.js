@@ -10,6 +10,7 @@ import ConfirmPrintAllModal from './components/confirmPrintAllModal'
 import FormCheck from 'react-bootstrap/FormCheck'
 import PrintingModal from './components/printingModal';
 import { default as emailjs } from 'emailjs-com'
+import NoLabelModal from './components/noLabelModal';
 
 export default class App extends React.Component {
 
@@ -30,7 +31,8 @@ export default class App extends React.Component {
     completedStateFilter: false,
     canceledStateFilter: false,
     printingModalVisible: false,
-    completedOrders: []
+    completedOrders: [],
+    noLabelModalVisible: false,
   }
 
   showConfirmPrint = () => this.setState({confirmPrintVisible: true})
@@ -39,6 +41,8 @@ export default class App extends React.Component {
   hideConfirmPrintAll = () => this.setState({confirmPrintAllVisible: false})
   showPrintingModal = () => this.setState({printingModalVisible: true})
   hidePrintingModal = () => this.setState({printingModalVisible: false})
+  showNoLabelModal = () => this.setState({noLabelModalVisible: true})
+  hideNoLabelModal = () => this.setState({noLabelModalVisible: false})
 
   toggleAllOrdersFilter = () => this.setState({openStateFilter: false, completedStateFilter: false, canceledStateFilter: false})
   toggleOpenStateFilter = () => this.setState({openStateFilter: true, completedStateFilter: false, canceledStateFilter: false})
@@ -211,7 +215,29 @@ export default class App extends React.Component {
                   </td>
                   <td>
                     {order.orderStatus === OPEN && <Button onClick={() => this.setState({openOrder: order}, () => this.showConfirmPrint())} variant="primary" style={{margin: '0% 1%'}}>Complete Order</Button>}
-                    {order.orderStatus === COMPLETED && <Button onClick={() => window.open("order.shippingLabelInfo.url", "_blank")} variant="success" style={{margin: '0% 1%'}}>Print Label</Button>}
+                    {order.orderStatus === COMPLETED && (
+                      <Button
+                        onClick={() => {
+                          if(order.shippingLabelUrl) {
+                            window.open(order.shippingLabelUrl, "_blank")
+                          } else if(order.shippingLabelId) {
+                            axios.get(`${process.env.REACT_APP_API_URL}/orders/${order.id}/label`)
+                              .then(labelInfo => window.open(labelInfo.data.url, "_blank"))
+                              .catch(labelError => console.error(labelError))
+                          } else {
+                            this.setState({
+                              openOrder: order
+                            }, () => {
+                              this.showNoLabelModal()
+                            })
+                          }
+                        }}
+                        variant="success"
+                        style={{margin: '0% 1%'}}
+                      >
+                        Print Label
+                      </Button>
+                    )}
                   </td>
                 </tr>
               )
@@ -221,6 +247,7 @@ export default class App extends React.Component {
         <ConfirmPrintModal show={this.state.confirmPrintVisible} onHide={() => this.hideConfirmPrint()} orderId={this.state.openOrder.id} confirm={this.completeOpenOrder} />
         <ConfirmPrintAllModal show={this.state.confirmPrintAllVisible} onHide={() => this.hideConfirmPrintAll()} listSize={this.state.orders.filter(order => order.orderStatus === OPEN).length} confirm={this.completeAllOrders} />
         <PrintingModal show={this.state.printingModalVisible} onHide={() => this.hidePrintingModal()} orders={this.state.completedOrders} clear={() => this.setState({ completedOrders: [] })} />
+        <NoLabelModal show={this.state.noLabelModalVisible} onHide={() => this.hideNoLabelModal()} orderId={this.state.openOrder.id} />
       </Container>
     );
   }
