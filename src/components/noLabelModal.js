@@ -11,7 +11,7 @@ export default class NoLabelModal extends React.Component {
       >
         <Modal.Header closeButton />
         <Modal.Body>
-          No label for order {this.props.orderId}.
+          No label for order {this.props.orderid}.
         </Modal.Body>
         <Modal.Footer>
           <Button onClick={() => this.props.onHide()} variant="danger">Close</Button>

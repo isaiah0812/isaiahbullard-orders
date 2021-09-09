@@ -28,9 +28,7 @@ export default class PrintingModal extends React.Component {
           labelUrls: urls
         })
       }).then(res => res.blob()).then(blob => {
-        console.log(blob)
         const downloadUrl = URL.createObjectURL(blob)
-        console.log(downloadUrl)
         let tempLink = document.createElement('a')
         tempLink.href = downloadUrl
 
